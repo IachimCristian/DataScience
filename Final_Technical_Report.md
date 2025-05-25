@@ -33,7 +33,7 @@ Develop a comprehensive machine learning system for NYC taxi fare prediction and
 - **4-Class Classification:** Fare range segmentation (99.60% accuracy)
 - **Regression Analysis:** Exact fare amount prediction (99.51% R² score)
 - **Clustering Analysis:** Customer segmentation insights
-- **Interactive Dashboard:** Real-time analytics and model exploration
+- **API Services:** Production-ready REST endpoints for model predictions
 
 ### Dataset Specifications
 - **Size:** 9,189 taxi trip records
@@ -66,7 +66,6 @@ src/
 ├── main.py                         # Comprehensive analysis runner
 ├── run_multiclass_classification.py # 4-class analysis script
 ├── run_phase5_evaluation.py        # Model comparison evaluation
-├── dashboard.py                     # Interactive web dashboard (1,348 lines)
 └── data/nyc_taxi_final.csv         # Processed dataset
 ```
 
@@ -86,11 +85,6 @@ outputs/
 - **TensorFlow/Keras:** Deep learning implementation (optional)
 - **NumPy/Pandas:** Data manipulation and numerical computing
 - **Matplotlib/Seaborn:** Visualization and plotting
-
-#### Web Framework
-- **Dash/Plotly:** Interactive dashboard development
-- **Bootstrap:** UI/UX styling and responsive design
-- **HTML/CSS:** Custom styling and layout
 
 #### Development Environment
 - **Python 3.8+:** Core programming language
@@ -393,21 +387,6 @@ Features:
 """
 ```
 
-#### Interactive Dashboard
-```python
-# dashboard.py
-"""
-Interactive Web Dashboard for NYC Taxi Analytics
-
-Components:
-- Model performance visualization
-- Real-time parameter adjustment
-- Clustering analysis interface
-- Regression analysis plots
-- Data exploration tools
-"""
-```
-
 ### API Documentation
 
 #### Model Training API
@@ -568,8 +547,6 @@ pandas>=1.3.0
 scikit-learn>=1.0.0
 matplotlib>=3.4.0
 seaborn>=0.11.0
-dash>=2.0.0
-plotly>=5.0.0
 tensorflow>=2.6.0  # Optional
 gunicorn>=20.1.0   # Production server
 redis>=3.5.3       # Caching
@@ -588,9 +565,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8050
+EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8050", "dashboard:server"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "api:app"]
 ```
 
 #### Docker Compose
@@ -599,10 +576,10 @@ CMD ["gunicorn", "--bind", "0.0.0.0:8050", "dashboard:server"]
 version: '3.8'
 
 services:
-  web:
+  api:
     build: .
     ports:
-      - "8050:8050"
+      - "5000:5000"
     environment:
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -1101,46 +1078,6 @@ class AdvancedMLPipeline:
         
         automl.fit(X, y)
         return automl
-    
-    def implement_neural_architecture_search(self, X, y):
-        """Neural architecture search"""
-        import keras_tuner as kt
-        
-        def build_model(hp):
-            model = tf.keras.Sequential()
-            model.add(tf.keras.layers.Dense(
-                hp.Int('units_1', 32, 512, step=32),
-                activation='relu',
-                input_shape=(X.shape[1],)
-            ))
-            
-            for i in range(hp.Int('num_layers', 2, 10)):
-                model.add(tf.keras.layers.Dense(
-                    hp.Int(f'units_{i+2}', 32, 512, step=32),
-                    activation='relu'
-                ))
-                model.add(tf.keras.layers.Dropout(
-                    hp.Float(f'dropout_{i+2}', 0, 0.5, step=0.1)
-                ))
-            
-            model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-            
-            model.compile(
-                optimizer=hp.Choice('optimizer', ['adam', 'rmsprop']),
-                loss='binary_crossentropy',
-                metrics=['accuracy']
-            )
-            
-            return model
-        
-        tuner = kt.RandomSearch(
-            build_model,
-            objective='val_accuracy',
-            max_trials=50
-        )
-        
-        tuner.search(X, y, epochs=50, validation_split=0.2)
-        return tuner.get_best_models()[0]
 ```
 
 ### Scalability Enhancements
@@ -1257,5 +1194,5 @@ The project includes complete documentation, testing frameworks, deployment conf
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** December 2024  
-**Next Review:** March 2025 
+**Last Updated:** May 2025
+**Next Review:** May 2025
