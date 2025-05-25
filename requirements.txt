@@ -1,0 +1,10 @@
+pandas
+scikit-learn
+matplotlib
+numpy
+dash
+dash-bootstrap-components
+plotly
+
+# Optional dependencies
+# tensorflow  # Uncomment if needed for deep learning models 
