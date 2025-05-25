@@ -19,6 +19,7 @@ from src.ensemble_models import train_random_forest, train_gradient_boosting
 from src.clustering import run_kmeans, run_dbscan
 from src.regression import train_random_forest_regressor, evaluate_regression
 from src.cross_validation import perform_2fold_cv, compare_models_2fold_cv
+from src.multiclass_classification import create_fare_classes, get_class_names, train_multiclass_models
 
 # Check if TensorFlow is available
 tensorflow_available = importlib.util.find_spec("tensorflow") is not None
@@ -64,7 +65,9 @@ def load_data():
 
 def get_features_and_targets():
     df = load_data()
-    feature_cols = ['trip_distance', 'fare_amount', 'total_amount', 'tolls_amount',
+    
+    # Use the same feature columns as in main.py (excluding fare_amount to avoid data leakage)
+    feature_cols = ['trip_distance', 'total_amount', 'tolls_amount',
                   'pickup_hour', 'pickup_day', 'pickup_weekday', 'pickup_month',
                   'trip_duration', 'speed_mph', 'is_weekend', 'is_rush_hour', 'is_night',
                   'pulocationid', 'passenger_count', 'payment_type', 'improvement_surcharge',
@@ -72,7 +75,7 @@ def get_features_and_targets():
     
     X = df[feature_cols].values
     y_class = df['high_fare'].values
-    y_reg = df['fare_amount'].values
+    y_reg = df['fare_amount'].values  # Keep raw fare amounts for regression
     
     return X, y_class, y_reg, feature_cols, df
 
@@ -87,6 +90,156 @@ model_options = [
 # Add Deep Learning option only if TensorFlow is available
 if tensorflow_available:
     model_options.append({'label': 'Deep Learning', 'value': 'deep_learning'})
+
+# Get some data for initial KPIs
+try:
+    _, _, _, _, df = get_features_and_targets()
+    avg_distance = np.mean(df['trip_distance'])
+    avg_fare = np.mean(df['fare_amount'])
+    max_fare = np.max(df['fare_amount'])
+    high_fare_pct = np.mean(df['high_fare']) * 100
+except:
+    avg_distance = 0
+    avg_fare = 0
+    max_fare = 0
+    high_fare_pct = 0
+
+# Create initial figures for immediate display
+def create_initial_model_performance_figure():
+    models = ['KNN', 'Logistic Regression', 'Random Forest', 'Gradient Boosting']
+    if tensorflow_available:
+        models.append('Deep Learning')
+    accuracies = [0] * len(models)
+    
+    fig = go.Figure(data=[
+        go.Bar(
+            name='Accuracy', 
+            x=models, 
+            y=accuracies, 
+            marker_color=colors['primary'],
+            text=['Click RUN MODEL'] * len(models),
+            textposition='inside',
+            hovertemplate='<b>%{x}</b><br>Click RUN MODEL to see results<extra></extra>'
+        )
+    ])
+    
+    fig.update_layout(
+        title='Model Accuracy Comparison - Click RUN MODEL',
+        xaxis_title='Model',
+        yaxis_title='Accuracy',
+        yaxis=dict(
+            range=[0, 1.0], 
+            gridcolor=colors['grid'],
+            showgrid=True,
+            tickformat='.3f'
+        ),
+        xaxis=dict(
+            gridcolor=colors['grid'],
+            showgrid=False
+        ),
+        plot_bgcolor=colors['background'],
+        paper_bgcolor=colors['background'],
+        font={'color': colors['text']},
+        margin=dict(l=60, r=40, t=60, b=60),
+        height=400,
+        showlegend=False
+    )
+    return fig
+
+def create_initial_regression_figure():
+    try:
+        X, _, y_reg, _, _ = get_features_and_targets()
+        X_train, X_test, y_train, y_test = train_test_split(X, y_reg, test_size=0.2, random_state=42)
+        rf_reg = train_random_forest_regressor(X_train, y_train)
+        y_pred = rf_reg.predict(X_test)
+        
+        # Sample for visualization
+        sample_size = min(300, len(y_test))
+        indices = np.random.choice(len(y_test), sample_size, replace=False)
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=y_test[indices],
+            y=y_pred[indices],
+            mode='markers',
+            marker=dict(color=colors['primary'], size=6, opacity=0.7),
+            name='Predictions',
+            hovertemplate='<b>Actual:</b> %{x:.3f}<br><b>Predicted:</b> %{y:.3f}<extra></extra>'
+        ))
+        
+        # Perfect prediction line
+        min_val = min(np.min(y_test[indices]), np.min(y_pred[indices]))
+        max_val = max(np.max(y_test[indices]), np.max(y_pred[indices]))
+        fig.add_trace(go.Scatter(
+            x=[min_val, max_val], y=[min_val, max_val],
+            mode='lines', name='Perfect Prediction',
+            line=dict(color=colors['accent'], dash='dash', width=2)
+        ))
+        
+        fig.update_layout(
+            title='Random Forest Regression: Actual vs Predicted',
+            xaxis=dict(title='Actual Fare Amount', gridcolor=colors['grid'], showgrid=True),
+            yaxis=dict(title='Predicted Fare Amount', gridcolor=colors['grid'], showgrid=True),
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            margin=dict(l=60, r=40, t=60, b=60),
+            height=400
+        )
+        return fig
+    except:
+        fig = go.Figure()
+        fig.update_layout(
+            title="Regression Analysis - Loading...",
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            height=400
+        )
+        return fig
+
+def create_initial_scatter_figure():
+    try:
+        df = load_data()
+        sample_df = df.sample(min(500, len(df)))
+        
+        fig = go.Figure()
+        
+        if 'high_fare' in df.columns:
+            colors_map = [colors['secondary'], colors['primary']]
+            for i, fare_type in enumerate(['Regular Fare', 'High Fare']):
+                mask = sample_df['high_fare'] == i
+                if mask.sum() > 0:
+                    fig.add_trace(go.Scatter(
+                        x=sample_df.loc[mask, 'trip_distance'],
+                        y=sample_df.loc[mask, 'fare_amount'],
+                        mode='markers',
+                        marker=dict(size=5, opacity=0.7, color=colors_map[i]),
+                        name=fare_type
+                    ))
+        
+        fig.update_layout(
+            title='Trip Distance vs Fare Amount',
+            xaxis=dict(title='Trip Distance', gridcolor=colors['grid'], showgrid=True),
+            yaxis=dict(title='Fare Amount', gridcolor=colors['grid'], showgrid=True),
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            margin=dict(l=60, r=40, t=60, b=60),
+            height=400
+        )
+        return fig
+    except:
+        fig = go.Figure()
+        fig.update_layout(
+            title="Data Explorer - Loading...",
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            height=400
+        )
+        return fig
 
 # Create a gauge chart
 def create_gauge_chart(value, title="", min_val=0, max_val=100):
@@ -144,19 +297,6 @@ def create_pie_chart(values, labels, title=""):
     )
     
     return fig
-
-# Get some data for initial KPIs
-try:
-    _, _, _, _, df = get_features_and_targets()
-    avg_distance = np.mean(df['trip_distance'])
-    avg_fare = np.mean(df['fare_amount'])
-    max_fare = np.max(df['fare_amount'])
-    high_fare_pct = np.mean(df['high_fare']) * 100
-except:
-    avg_distance = 0
-    avg_fare = 0
-    max_fare = 0
-    high_fare_pct = 0
 
 # Define the layout
 app.layout = dbc.Container([
@@ -253,9 +393,17 @@ app.layout = dbc.Container([
                                             dcc.Loading(
                                                 id="loading-model-performance",
                                                 type="circle",
-                                                children=[dcc.Graph(id='model-performance-graph', className='dash-graph')]
+                                                children=[dcc.Graph(
+                                                    id='model-performance-graph', 
+                                                    className='dash-graph',
+                                                    figure=create_initial_model_performance_figure()
+                                                )]
                                             ),
-                                            html.Div(id='model-metrics-container', className='metrics-container')
+                                            html.Div(id='model-metrics-container', className='metrics-container', children=[
+                                                html.H5("Model Performance"),
+                                                html.P("Select a model and click 'RUN MODEL' to see results"),
+                                                html.P("Dataset ready for analysis")
+                                            ])
                                         ], width=12)
                                     ])
                                 ], label="MODEL PERFORMANCE"),
@@ -297,12 +445,40 @@ app.layout = dbc.Container([
                                             dcc.Loading(
                                                 id="loading-regression",
                                                 type="circle",
-                                                children=[dcc.Graph(id='regression-graph', className='dash-graph')]
+                                                children=[dcc.Graph(
+                                                    id='regression-graph', 
+                                                    className='dash-graph',
+                                                    figure=create_initial_regression_figure()
+                                                )]
                                             ),
-                                            html.Div(id='regression-metrics-container', className='metrics-container')
+                                            html.Div(id='regression-metrics-container', className='metrics-container', children=[
+                                                html.H5("Random Forest Regression"),
+                                                html.P("Regression analysis loaded automatically"),
+                                                html.P("Shows actual vs predicted fare amounts")
+                                            ])
                                         ], width=12)
                                     ])
                                 ], label="REGRESSION"),
+                                
+                                dbc.Tab([
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.Div([
+                                                html.H5("4-Class Fare Classification", className="mb-3"),
+                                                html.P("Classify taxi trips into 4 fare ranges: <$10, $10-$30, $30-$60, >$60"),
+                                                html.Button('RUN 4-CLASS CLASSIFICATION', id='run-multiclass-button', className='btn btn-primary mb-3'),
+                                                dcc.Loading(
+                                                    id="loading-multiclass",
+                                                    type="circle",
+                                                    children=[
+                                                        dcc.Graph(id='multiclass-performance-graph', className='dash-graph'),
+                                                        html.Div(id='multiclass-results-container', className='mt-3')
+                                                    ]
+                                                )
+                                            ])
+                                        ], width=12)
+                                    ])
+                                ], label="4-CLASS CLASSIFICATION"),
                                 
                                 dbc.Tab([
                                     dbc.Row([
@@ -349,7 +525,11 @@ app.layout = dbc.Container([
                     dcc.Loading(
                         id="loading-scatter",
                         type="circle",
-                        children=[dcc.Graph(id='scatter-explorer', className='dash-graph')]
+                        children=[dcc.Graph(
+                            id='scatter-explorer', 
+                            className='dash-graph',
+                            figure=create_initial_scatter_figure()
+                        )]
                     )
                 ])
             ])
@@ -358,7 +538,7 @@ app.layout = dbc.Container([
     
     html.Footer([
         html.P("NYC TAXI DATA ANALYTICS DASHBOARD © 2025", className="text-center text-muted mt-3 mb-2"),
-        html.P("Designed by Your Name | Powered by Dash", className="text-center text-muted mb-3 small")
+        html.P("Designed by Iachim Cristian & Serbicean Alexandru | Powered by Dash", className="text-center text-muted mb-3 small")
     ]),
     
     # Store components to keep track of the current state
@@ -483,6 +663,109 @@ def set_features_dropdown_options(_):
         # Return empty options if data loading fails
         return [], [], None, None
 
+# Add new callback for 4-class classification
+@app.callback(
+    [Output('multiclass-performance-graph', 'figure'),
+     Output('multiclass-results-container', 'children')],
+    Input('run-multiclass-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def run_multiclass_classification(n_clicks):
+    if n_clicks is None:
+        return go.Figure(), html.Div()
+    
+    try:
+        # Load data
+        X, _, y_reg, _, _ = get_features_and_targets()
+        
+        # Create 4-class labels
+        y_multiclass = create_fare_classes(y_reg)
+        class_names = get_class_names()
+        
+        # Use a subset for faster execution in the dashboard
+        subset_size = min(3000, X.shape[0])
+        indices = np.random.choice(X.shape[0], subset_size, replace=False)
+        X_subset = X[indices]
+        y_subset = y_multiclass[indices]
+        
+        # Train models
+        results = train_multiclass_models(X_subset, y_subset, test_size=0.2, random_state=42)
+        
+        # Extract model names and accuracies
+        model_names = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']
+        accuracies = [results[model]['accuracy'] for model in model_names]
+        
+        # Create comparison graph
+        fig = go.Figure()
+        
+        # Add bars
+        fig.add_trace(go.Bar(
+            x=model_names,
+            y=accuracies,
+            marker_color=colors['primary'],
+            text=[f'{acc:.3f}' for acc in accuracies],
+            textposition='outside'
+        ))
+        
+        fig.update_layout(
+            title='4-Class Fare Classification Results',
+            xaxis_title='Model',
+            yaxis_title='Accuracy',
+            yaxis=dict(range=[0, 1.1], gridcolor=colors['grid']),
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            margin=dict(l=40, r=40, t=40, b=40),
+            showlegend=False
+        )
+        
+        # Show class distribution
+        unique, counts = np.unique(y_subset, return_counts=True)
+        class_dist_text = []
+        for class_id, count in zip(unique, counts):
+            percentage = (count / len(y_subset)) * 100
+            class_dist_text.append(f"{class_names[class_id]}: {count:,} samples ({percentage:.1f}%)")
+        
+        # Find best model
+        best_idx = np.argmax(accuracies)
+        best_model = model_names[best_idx]
+        best_accuracy = accuracies[best_idx]
+        
+        # Create results container
+        results_container = html.Div([
+            html.H5("4-Class Classification Results", className="mb-3"),
+            html.P(f"Using {subset_size} samples for faster execution"),
+            
+            html.Div([
+                html.H6("Class Distribution:", className="mb-2"),
+                html.Ul([html.Li(text) for text in class_dist_text])
+            ], className="mb-3"),
+            
+            html.Div([
+                html.H6("Model Performance:", className="mb-2"),
+                html.Ul([
+                    html.Li(f"{model}: {acc:.4f} ({acc*100:.2f}%)")
+                    for model, acc in zip(model_names, accuracies)
+                ])
+            ], className="mb-3"),
+            
+            dbc.Alert([
+                html.H6(f"🏆 Best Model: {best_model}", className="mb-1"),
+                html.P(f"Accuracy: {best_accuracy:.4f} ({best_accuracy*100:.2f}%)", className="mb-0")
+            ], color="success")
+        ])
+        
+        return fig, results_container
+        
+    except Exception as e:
+        error_fig = go.Figure()
+        error_fig.update_layout(
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']}
+        )
+        return error_fig, html.Div(f"Error running 4-class classification: {str(e)}")
+
 # Add new callback for 2-fold cross validation
 @app.callback(
     [Output('cv-comparison-graph', 'figure'),
@@ -583,14 +866,8 @@ def run_and_display_model(n_clicks, model_type, knn_k, rf_n, gb_lr, dl_ep):
     ctx = dash.callback_context
     gauge_value = 50.0  # Default value
     
-    if not ctx.triggered or ctx.triggered[0]['prop_id'].split('.')[0] != 'run-model-button':
-        # Initialize with default values
-        models = ['KNN', 'Logistic Regression', 'Random Forest', 'Gradient Boosting']
-        if tensorflow_available:
-            models.append('Deep Learning')
-        accuracies = [0] * len(models)
-        metrics_display = html.Div("Click 'RUN MODEL' to see performance metrics")
-    else:
+    # Always show initial content, even if button not clicked
+    try:
         # Load data
         X, y_class, _, _, _ = get_features_and_targets()
         X_train, X_test, y_train, y_test = train_test_split(X, y_class, test_size=0.2, random_state=42)
@@ -601,78 +878,122 @@ def run_and_display_model(n_clicks, model_type, knn_k, rf_n, gb_lr, dl_ep):
             models.append('Deep Learning')
         accuracies = [0] * len(models)
         
-        # Run selected model
-        if model_type == 'knn':
-            k = knn_k if knn_k is not None else 3
-            knn = KNNFast(k=k)
-            knn.fit(X_train, y_train)
-            y_pred = knn.predict(X_test)
-            acc = accuracy_score(y_test, y_pred)
-            accuracies[0] = acc
-            gauge_value = acc * 100
+        # If button was clicked, run the selected model
+        if ctx.triggered and ctx.triggered[0]['prop_id'].split('.')[0] == 'run-model-button':
+            # Run selected model
+            if model_type == 'knn':
+                k = knn_k if knn_k is not None else 3
+                knn = KNNFast(k=k)
+                knn.fit(X_train, y_train)
+                y_pred = knn.predict(X_test)
+                acc = accuracy_score(y_test, y_pred)
+                accuracies[0] = acc
+                gauge_value = acc * 100
+                metrics_display = html.Div([
+                    html.H5(f"KNN Results (k={k})"),
+                    html.P(f"Accuracy: {acc:.4f}")
+                ])
+            
+            elif model_type == 'logistic':
+                _, y_true, y_pred, acc = train_logistic_regression(X, y_class)
+                accuracies[1] = acc
+                gauge_value = acc * 100
+                metrics_display = html.Div([
+                    html.H5("Logistic Regression Results"),
+                    html.P(f"Accuracy: {acc:.4f}")
+                ])
+            
+            elif model_type == 'random_forest':
+                n_estimators = rf_n if rf_n is not None else 100
+                from sklearn.ensemble import RandomForestClassifier
+                rf = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+                rf.fit(X_train, y_train)
+                acc = rf.score(X_test, y_test)
+                accuracies[2] = acc
+                gauge_value = acc * 100
+                metrics_display = html.Div([
+                    html.H5(f"Random Forest Results (n_estimators={n_estimators})"),
+                    html.P(f"Accuracy: {acc:.4f}")
+                ])
+            
+            elif model_type == 'gradient_boosting':
+                learning_rate = gb_lr if gb_lr is not None else 0.1
+                from sklearn.ensemble import GradientBoostingClassifier
+                gb = GradientBoostingClassifier(n_estimators=100, learning_rate=learning_rate, random_state=42)
+                gb.fit(X_train, y_train)
+                acc = gb.score(X_test, y_test)
+                accuracies[3] = acc
+                gauge_value = acc * 100
+                metrics_display = html.Div([
+                    html.H5(f"Gradient Boosting Results (learning_rate={learning_rate})"),
+                    html.P(f"Accuracy: {acc:.4f}")
+                ])
+            
+            elif model_type == 'deep_learning' and tensorflow_available:
+                epochs = dl_ep if dl_ep is not None else 10
+                model_dl = build_deep_learning_model(X.shape[1])
+                model_dl.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=0)
+                score = model_dl.evaluate(X_test, y_test, verbose=0)
+                acc = score[1]
+                accuracies[4] = acc
+                gauge_value = acc * 100
+                metrics_display = html.Div([
+                    html.H5(f"Deep Learning Results (epochs={epochs})"),
+                    html.P(f"Accuracy: {acc:.4f}")
+                ])
+        else:
+            # Show initial message
             metrics_display = html.Div([
-                html.H5(f"KNN Results (k={k})"),
-                html.P(f"Accuracy: {acc:.4f}")
+                html.H5("Model Performance"),
+                html.P("Select a model and click 'RUN MODEL' to see results"),
+                html.P(f"Dataset: {X.shape[0]:,} samples, {X.shape[1]} features"),
+                html.P(f"Target: Binary classification (high_fare)")
             ])
-        
-        elif model_type == 'logistic':
-            _, y_true, y_pred, acc = train_logistic_regression(X, y_class)
-            accuracies[1] = acc
-            gauge_value = acc * 100
-            metrics_display = html.Div([
-                html.H5("Logistic Regression Results"),
-                html.P(f"Accuracy: {acc:.4f}")
-            ])
-        
-        elif model_type == 'random_forest':
-            n_estimators = rf_n if rf_n is not None else 100
-            rf = train_random_forest(X_train, y_train, n_estimators=n_estimators)
-            acc = rf.score(X_test, y_test)
-            accuracies[2] = acc
-            gauge_value = acc * 100
-            metrics_display = html.Div([
-                html.H5(f"Random Forest Results (n_estimators={n_estimators})"),
-                html.P(f"Accuracy: {acc:.4f}")
-            ])
-        
-        elif model_type == 'gradient_boosting':
-            learning_rate = gb_lr if gb_lr is not None else 0.1
-            gb = train_gradient_boosting(X_train, y_train, learning_rate=learning_rate)
-            acc = gb.score(X_test, y_test)
-            accuracies[3] = acc
-            gauge_value = acc * 100
-            metrics_display = html.Div([
-                html.H5(f"Gradient Boosting Results (learning_rate={learning_rate})"),
-                html.P(f"Accuracy: {acc:.4f}")
-            ])
-        
-        elif model_type == 'deep_learning' and tensorflow_available:
-            epochs = dl_ep if dl_ep is not None else 10
-            model_dl = build_deep_learning_model(X.shape[1])
-            model_dl.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=0)
-            score = model_dl.evaluate(X_test, y_test, verbose=0)
-            acc = score[1]
-            accuracies[4] = acc
-            gauge_value = acc * 100
-            metrics_display = html.Div([
-                html.H5(f"Deep Learning Results (epochs={epochs})"),
-                html.P(f"Accuracy: {acc:.4f}")
-            ])
+    
+    except Exception as e:
+        # Handle errors gracefully
+        models = ['KNN', 'Logistic Regression', 'Random Forest', 'Gradient Boosting']
+        if tensorflow_available:
+            models.append('Deep Learning')
+        accuracies = [0] * len(models)
+        metrics_display = html.Div([
+            html.H5("Error Loading Data"),
+            html.P(f"Error: {str(e)}")
+        ])
     
     # Create the figure
     fig = go.Figure(data=[
-        go.Bar(name='Accuracy', x=models, y=accuracies, marker_color=colors['primary'])
+        go.Bar(
+            name='Accuracy', 
+            x=models, 
+            y=accuracies, 
+            marker_color=colors['primary'],
+            text=[f'{acc:.3f}' if acc > 0 else '' for acc in accuracies],
+            textposition='outside',
+            hovertemplate='<b>%{x}</b><br>Accuracy: %{y:.4f}<extra></extra>'
+        )
     ])
     
     fig.update_layout(
         title='Model Accuracy Comparison',
         xaxis_title='Model',
         yaxis_title='Accuracy',
-        yaxis=dict(range=[0, 1.0], gridcolor=colors['grid']),
+        yaxis=dict(
+            range=[0, 1.0], 
+            gridcolor=colors['grid'],
+            showgrid=True,
+            tickformat='.3f'
+        ),
+        xaxis=dict(
+            gridcolor=colors['grid'],
+            showgrid=False
+        ),
         plot_bgcolor=colors['background'],
         paper_bgcolor=colors['background'],
         font={'color': colors['text']},
-        margin=dict(l=40, r=40, t=40, b=40)
+        margin=dict(l=60, r=40, t=60, b=60),
+        height=400,
+        showlegend=False
     )
     
     # Update gauge chart
@@ -685,11 +1006,9 @@ def run_and_display_model(n_clicks, model_type, knn_k, rf_n, gb_lr, dl_ep):
      Output('clustering-metrics-container', 'children')],
     [Input('run-clustering-button', 'n_clicks'),
      Input('clustering-dropdown', 'value')],
-    [State('kmeans-n-clusters', 'value'),
-     State('dbscan-eps', 'value'),
-     State('dbscan-min-samples', 'value')]
+    [State('clustering-params-container', 'children')]
 )
-def run_and_display_clustering(n_clicks, algorithm, n_clusters=3, eps=2.0, min_samples=20):
+def run_and_display_clustering(n_clicks, algorithm, params_children):
     ctx = dash.callback_context
     if not ctx.triggered or ctx.triggered[0]['prop_id'].split('.')[0] != 'run-clustering-button':
         # Return empty figure and message if button not clicked
@@ -717,25 +1036,59 @@ def run_and_display_clustering(n_clicks, algorithm, n_clusters=3, eps=2.0, min_s
         pca = PCA(n_components=2)
         X_vis = pca.fit_transform(X_sample)
         
+        # Extract parameters from the dynamic components (with defaults)
+        n_clusters = 3  # default
+        eps = 2.0  # default
+        min_samples = 20  # default
+        
+        # Try to extract actual values from the params_children if they exist
+        if params_children and isinstance(params_children, list):
+            for child in params_children:
+                if isinstance(child, dict) and 'props' in child:
+                    if child.get('props', {}).get('id') == 'kmeans-n-clusters':
+                        n_clusters = child.get('props', {}).get('value', 3)
+                    elif child.get('props', {}).get('id') == 'dbscan-eps':
+                        eps = child.get('props', {}).get('value', 2.0)
+                    elif child.get('props', {}).get('id') == 'dbscan-min-samples':
+                        min_samples = child.get('props', {}).get('value', 20)
+        
         # Run the selected clustering algorithm
         if algorithm == 'kmeans':
-            n_clusters = n_clusters if n_clusters is not None else 3
-            model, labels, silhouette = run_kmeans(X_sample, n_clusters=n_clusters)
+            from sklearn.cluster import KMeans
+            model = KMeans(n_clusters=n_clusters, random_state=42)
+            labels = model.fit_predict(X_sample)
+            
+            # Calculate silhouette score
+            from sklearn.metrics import silhouette_score
+            if len(set(labels)) > 1:
+                silhouette = silhouette_score(X_sample, labels)
+            else:
+                silhouette = 0.0
+                
             title = f"KMeans Clustering (n_clusters={n_clusters})"
             metrics = html.Div([
                 html.H5(f"KMeans Results (n_clusters={n_clusters})"),
                 html.P(f"Silhouette Score: {silhouette:.4f}")
             ])
         else:  # dbscan
-            eps = eps if eps is not None else 2.0
-            min_samples = min_samples if min_samples is not None else 20
-            model, labels, silhouette = run_dbscan(X_sample, eps=eps, min_samples=min_samples)
+            from sklearn.cluster import DBSCAN
+            from sklearn.metrics import silhouette_score
+            
+            model = DBSCAN(eps=eps, min_samples=min_samples)
+            labels = model.fit_predict(X_sample)
+            
+            # Calculate silhouette score
+            if len(set(labels)) > 1 and -1 not in labels:
+                silhouette = silhouette_score(X_sample, labels)
+            else:
+                silhouette = None
+                
             title = f"DBSCAN Clustering (eps={eps}, min_samples={min_samples})"
-            n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+            n_clusters_found = len(set(labels)) - (1 if -1 in labels else 0)
             metrics = html.Div([
                 html.H5(f"DBSCAN Results (eps={eps}, min_samples={min_samples})"),
-                html.P(f"Number of clusters: {n_clusters}"),
-                html.P(f"Silhouette Score: {silhouette if silhouette is not None else 'N/A'}")
+                html.P(f"Number of clusters: {n_clusters_found}"),
+                html.P(f"Silhouette Score: {silhouette:.4f if silhouette is not None else 'N/A'}")
             ])
             
         # Create the scatter plot
@@ -779,9 +1132,10 @@ def run_and_display_clustering(n_clicks, algorithm, n_clusters=3, eps=2.0, min_s
 @app.callback(
     [Output('regression-graph', 'figure'),
      Output('regression-metrics-container', 'children')],
-    Input('model-performance-graph', 'figure')  # This is just a trigger
+    [Input('model-performance-graph', 'figure'),
+     Input('run-model-button', 'n_clicks')]  # Add this trigger
 )
-def update_regression_graph(_):
+def update_regression_graph(_, n_clicks):
     try:
         # Load data and run regression
         X, _, y_reg, _, _ = get_features_and_targets()
@@ -797,7 +1151,7 @@ def update_regression_graph(_):
         y_pred = rf_reg.predict(X_test)
         
         # Sample for visualization
-        sample_size = min(1000, len(y_test))
+        sample_size = min(500, len(y_test))
         indices = np.random.choice(len(y_test), sample_size, replace=False)
         
         # Create scatter plot
@@ -813,49 +1167,86 @@ def update_regression_graph(_):
                 size=8,
                 opacity=0.7
             ),
-            name='Predictions'
+            name='Predictions',
+            hovertemplate='<b>Actual:</b> %{x:.3f}<br><b>Predicted:</b> %{y:.3f}<extra></extra>'
         ))
         
         # Add perfect prediction line
+        min_val = min(np.min(y_test[indices]), np.min(y_pred[indices]))
+        max_val = max(np.max(y_test[indices]), np.max(y_pred[indices]))
         fig.add_trace(go.Scatter(
-            x=[min(y_test), max(y_test)],
-            y=[min(y_test), max(y_test)],
+            x=[min_val, max_val],
+            y=[min_val, max_val],
             mode='lines',
             name='Perfect Prediction',
-            line=dict(color=colors['accent'], dash='dash')
+            line=dict(color=colors['accent'], dash='dash', width=2),
+            hovertemplate='Perfect Prediction Line<extra></extra>'
         ))
         
         fig.update_layout(
-            title='Random Forest Regression: Actual vs Predicted Values',
-            xaxis=dict(title='Actual Fare Amount', gridcolor=colors['grid']),
-            yaxis=dict(title='Predicted Fare Amount', gridcolor=colors['grid']),
+            title='Random Forest Regression: Actual vs Predicted Fare Amounts',
+            xaxis=dict(
+                title='Actual Fare Amount', 
+                gridcolor=colors['grid'],
+                showgrid=True
+            ),
+            yaxis=dict(
+                title='Predicted Fare Amount', 
+                gridcolor=colors['grid'],
+                showgrid=True
+            ),
             plot_bgcolor=colors['background'],
             paper_bgcolor=colors['background'],
             font={'color': colors['text']},
             legend=dict(
                 font=dict(color=colors['text']),
+                x=0.02,
+                y=0.98
             ),
-            margin=dict(l=40, r=40, t=40, b=40)
+            margin=dict(l=60, r=40, t=60, b=60),
+            height=500
         )
         
         # Create metrics display
         metrics = html.Div([
-            html.H5("Random Forest Regression Results"),
-            html.P(f"Mean Squared Error: {mse:.2f}"),
-            html.P(f"Mean Absolute Error: {mae:.2f}"),
-            html.P(f"R² Score: {r2:.4f}")
+            html.H5("Random Forest Regression Results", className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    html.P([html.Strong("Mean Squared Error: "), f"{mse:.4f}"]),
+                    html.P([html.Strong("Mean Absolute Error: "), f"{mae:.4f}"]),
+                    html.P([html.Strong("R² Score: "), f"{r2:.4f}"])
+                ], width=6),
+                dbc.Col([
+                    html.P([html.Strong("Dataset: "), f"{X.shape[0]:,} samples"]),
+                    html.P([html.Strong("Test set: "), f"{len(y_test):,} samples"]),
+                    html.P([html.Strong("Visualization: "), f"{sample_size:,} points"])
+                ], width=6)
+            ])
         ])
         
         return fig, metrics
-    except:
+    except Exception as e:
         # Return empty figure if regression fails
         fig = go.Figure()
         fig.update_layout(
+            title="Regression Analysis - Error",
             plot_bgcolor=colors['background'],
             paper_bgcolor=colors['background'],
-            font={'color': colors['text']}
+            font={'color': colors['text']},
+            margin=dict(l=40, r=40, t=40, b=40),
+            height=500
         )
-        return fig, html.Div("Error running regression")
+        fig.add_annotation(
+            text=f"Error loading regression: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, xanchor='center', yanchor='middle',
+            showarrow=False,
+            font=dict(color=colors['text'], size=16)
+        )
+        return fig, html.Div([
+            html.H5("Regression Analysis"),
+            html.P(f"Error loading regression: {str(e)}", className="text-danger")
+        ])
 
 @app.callback(
     Output('scatter-explorer', 'figure'),
@@ -863,17 +1254,14 @@ def update_regression_graph(_):
      Input('feature-y-dropdown', 'value')]
 )
 def update_scatter_explorer(x_feature, y_feature):
-    if not x_feature or not y_feature:
-        fig = go.Figure()
-        fig.update_layout(
-            plot_bgcolor=colors['background'],
-            paper_bgcolor=colors['background'],
-            font={'color': colors['text']}
-        )
-        return fig
-    
     try:
         df = load_data()
+        
+        # If no features selected, show default
+        if not x_feature:
+            x_feature = 'trip_distance'
+        if not y_feature:
+            y_feature = 'fare_amount'
         
         # Sample data for faster rendering
         sample_df = df.sample(min(1000, len(df)))
@@ -883,18 +1271,22 @@ def update_scatter_explorer(x_feature, y_feature):
         
         # Create scatter plot with color based on high_fare
         if 'high_fare' in df.columns:
+            colors_map = [colors['secondary'], colors['primary']]
             for i, fare_type in enumerate(['Regular Fare', 'High Fare']):
                 mask = sample_df['high_fare'] == i
-                fig.add_trace(go.Scatter(
-                    x=sample_df.loc[mask, x_feature],
-                    y=sample_df.loc[mask, y_feature],
-                    mode='markers',
-                    marker=dict(
-                        size=8,
-                        opacity=0.7
-                    ),
-                    name=fare_type
-                ))
+                if mask.sum() > 0:  # Only add if there are points
+                    fig.add_trace(go.Scatter(
+                        x=sample_df.loc[mask, x_feature],
+                        y=sample_df.loc[mask, y_feature],
+                        mode='markers',
+                        marker=dict(
+                            size=6,
+                            opacity=0.7,
+                            color=colors_map[i]
+                        ),
+                        name=fare_type,
+                        hovertemplate=f'<b>{fare_type}</b><br>{x_feature}: %{{x}}<br>{y_feature}: %{{y}}<extra></extra>'
+                    ))
         else:
             fig.add_trace(go.Scatter(
                 x=sample_df[x_feature],
@@ -902,31 +1294,53 @@ def update_scatter_explorer(x_feature, y_feature):
                 mode='markers',
                 marker=dict(
                     color=colors['primary'],
-                    size=8,
+                    size=6,
                     opacity=0.7
-                )
+                ),
+                name='Data Points',
+                hovertemplate=f'{x_feature}: %{{x}}<br>{y_feature}: %{{y}}<extra></extra>'
             ))
         
         fig.update_layout(
-            title=f'{x_feature} vs {y_feature}',
-            xaxis=dict(title=x_feature, gridcolor=colors['grid']),
-            yaxis=dict(title=y_feature, gridcolor=colors['grid']),
+            title=f'{x_feature} vs {y_feature} ({len(sample_df):,} samples)',
+            xaxis=dict(
+                title=x_feature, 
+                gridcolor=colors['grid'],
+                showgrid=True
+            ),
+            yaxis=dict(
+                title=y_feature, 
+                gridcolor=colors['grid'],
+                showgrid=True
+            ),
             plot_bgcolor=colors['background'],
             paper_bgcolor=colors['background'],
             font={'color': colors['text']},
             legend=dict(
                 font=dict(color=colors['text']),
+                x=0.02,
+                y=0.98
             ),
-            margin=dict(l=40, r=40, t=40, b=40)
+            margin=dict(l=60, r=40, t=60, b=60),
+            height=400
         )
         
         return fig
-    except:
+    except Exception as e:
         fig = go.Figure()
         fig.update_layout(
+            title="Data Explorer",
             plot_bgcolor=colors['background'],
             paper_bgcolor=colors['background'],
-            font={'color': colors['text']}
+            font={'color': colors['text']},
+            margin=dict(l=40, r=40, t=40, b=40)
+        )
+        fig.add_annotation(
+            text=f"Error loading data: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, xanchor='center', yanchor='middle',
+            showarrow=False,
+            font=dict(color=colors['text'], size=14)
         )
         return fig
 

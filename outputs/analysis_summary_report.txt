@@ -1,0 +1,67 @@
+================================================================================
+NYC TAXI 4-CLASS FARE CLASSIFICATION - ANALYSIS SUMMARY REPORT
+================================================================================
+Generated on: 2025-05-25 22:26:55
+
+DATA OVERVIEW
+----------------------------------------
+Total samples: 9,189
+Fare range: $-1.07 - $1.76
+Mean fare: $-0.20
+Median fare: $-0.32
+Standard deviation: $0.57
+
+CLASS DISTRIBUTION
+----------------------------------------
+Class 0: Short trips, low fare (< $10): 2,626 samples (28.6%)
+Class 1: Medium-distance trips, moderate fare ($10-$30): 2,259 samples (24.6%)
+Class 2: Long-distance trips, high fare ($30-$60): 2,151 samples (23.4%)
+Class 3: Premium fares (> $60): 2,153 samples (23.4%)
+
+MODEL PERFORMANCE SUMMARY
+----------------------------------------
+              Model Accuracy Accuracy (%)
+                KNN   0.9102       91.02%
+      Random Forest   0.9864       98.64%
+  Gradient Boosting   0.9918       99.18%
+Logistic Regression   0.9597       95.97%
+
+BEST PERFORMING MODEL: Gradient Boosting
+----------------------------------------
+Accuracy: 0.9918 (99.18%)
+
+Detailed Classification Report:
+                                                         precision    recall  f1-score   support
+
+                 Class 0: Short trips, low fare (< $10)       0.99      1.00      0.99       525
+Class 1: Medium-distance trips, moderate fare ($10-$30)       0.99      0.99      0.99       452
+      Class 2: Long-distance trips, high fare ($30-$60)       0.99      0.99      0.99       430
+                         Class 3: Premium fares (> $60)       1.00      0.99      0.99       431
+
+                                               accuracy                           0.99      1838
+                                              macro avg       0.99      0.99      0.99      1838
+                                           weighted avg       0.99      0.99      0.99      1838
+
+
+KEY INSIGHTS
+----------------------------------------
+1. FARE DISTRIBUTION:
+   • Most common fare category: Class 0: Short trips, low fare (< $10) (28.6%)
+   • Average fare amount: $-0.20
+   • Fare variability (std): $0.57
+
+2. MODEL PERFORMANCE:
+   • Best accuracy: 0.9918 (Gradient Boosting)
+   • Worst accuracy: 0.9102
+   • Average accuracy: 0.9621
+   • Performance range: 0.0816
+
+3. CLASSIFICATION CHALLENGES:
+   • Multi-class classification is more challenging than binary
+   • Class imbalance may affect model performance
+   • Feature engineering could improve results
+   • Ensemble methods generally perform better
+
+================================================================================
+END OF REPORT
+================================================================================

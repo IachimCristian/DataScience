@@ -1,0 +1,9 @@
+NYC TAXI DATA SCIENCE PROJECT - PHASE 5 SUMMARY
+============================================================
+
+BEST PERFORMING MODELS:
+------------------------------
+Binary Classification: Gradient Boosting (0.9978)
+4-Class Classification: Gradient Boosting (0.9910)
+Regression: Random Forest (R� = 0.9951)
+Clustering: KMeans (Silhouette = 0.3010)

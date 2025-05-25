@@ -13,11 +13,14 @@ from src.ensemble_models import train_random_forest, train_gradient_boosting
 from src.deep_learning import build_deep_learning_model
 from src.clustering import run_kmeans, run_dbscan
 from src.regression import train_random_forest_regressor, evaluate_regression
+from src.multiclass_classification import create_fare_classes, get_class_names, train_multiclass_models
+from src.model_comparison import run_phase5_evaluation
 
 def load_data():
     df = pd.read_csv("data/nyc_taxi_final.csv")
 
-    feature_cols = ['trip_distance', 'fare_amount', 'total_amount', 'tolls_amount',
+    # Features (excluding fare_amount to avoid data leakage in classification)
+    feature_cols = ['trip_distance', 'total_amount', 'tolls_amount',
         'pickup_hour', 'pickup_day', 'pickup_weekday', 'pickup_month',
         'trip_duration', 'speed_mph', 'is_weekend', 'is_rush_hour', 'is_night',
         'pulocationid', 'passenger_count', 'payment_type', 'improvement_surcharge',
@@ -25,7 +28,7 @@ def load_data():
 
     X = df[feature_cols].values
     y_class = df['high_fare'].values
-    y_reg = df['fare_amount'].values
+    y_reg = df['fare_amount'].values  # Keep raw fare amounts for regression and classification
 
     return X, y_class, y_reg
 
@@ -33,15 +36,31 @@ def run_models():
     X, y_class, y_reg = load_data()
     X_train, X_test, y_train, y_test = train_test_split(X, y_class, test_size=0.2, random_state=42)
 
+    print("="*80)
+    print("NYC TAXI DATA SCIENCE PROJECT - COMPREHENSIVE ANALYSIS")
+    print("="*80)
+    print("This analysis includes:")
+    print("1. Binary Classification (high_fare vs regular)")
+    print("2. 4-Class Fare Classification (< $10, $10-$30, $30-$60, > $60)")
+    print("3. Regression (fare amount prediction)")
+    print("4. Clustering Analysis")
+    print("="*80)
+
+    # BINARY CLASSIFICATION
+    print("\n" + "="*60)
+    print("BINARY CLASSIFICATION ANALYSIS")
+    print("="*60)
+
     # kNN
     knn = KNNFast(k=3)
     knn.fit(X_train, y_train)
     y_pred_knn = knn.predict(X_test)
-    print("kNN Accuracy:", accuracy_score(y_test, y_pred_knn))
+    knn_acc = accuracy_score(y_test, y_pred_knn)
+    print(f"kNN Accuracy: {knn_acc:.4f}")
 
     # Logistic Regression
-    _, y_true, y_pred, acc = train_logistic_regression(X, y_class)
-    print("Logistic Regression Accuracy:", acc)
+    _, y_true, y_pred, lr_acc = train_logistic_regression(X, y_class)
+    print(f"Logistic Regression Accuracy: {lr_acc:.4f}")
 
     # Random Forest Classifier
     rf = train_random_forest(X_train, y_train)
@@ -53,12 +72,50 @@ def run_models():
     gb_acc = gb.score(X_test, y_test)
     print(f"Gradient Boosting Accuracy: {gb_acc:.4f}")
 
+    # Deep Learning (with error handling)
+    try:
+        model_dl = build_deep_learning_model(X.shape[1])
+        model_dl.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+        dl_score = model_dl.evaluate(X_test, y_test, verbose=0)
+        dl_acc = dl_score[1]
+        print(f"Deep Learning Accuracy: {dl_acc:.4f}")
+    except Exception as e:
+        print(f"Deep Learning: Not available ({str(e)[:50]}...)")
+        dl_acc = None
 
-    # Deep Learning
-    model_dl = build_deep_learning_model(X.shape[1])
-    model_dl.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
-    dl_score = model_dl.evaluate(X_test, y_test, verbose=0)
-    print(f"Deep Learning Accuracy: {dl_score[1]:.4f}")
+    # 4-CLASS CLASSIFICATION
+    print("\n" + "="*60)
+    print("4-CLASS FARE CLASSIFICATION ANALYSIS")
+    print("="*60)
+    print("Classes:")
+    class_names = get_class_names()
+    for i, name in enumerate(class_names):
+        print(f"  {name}")
+    print()
+
+    # Create 4-class labels
+    y_multiclass = create_fare_classes(y_reg)
+    
+    # Show class distribution
+    unique, counts = np.unique(y_multiclass, return_counts=True)
+    print("Class Distribution:")
+    for class_id, count in zip(unique, counts):
+        percentage = (count / len(y_multiclass)) * 100
+        print(f"  {class_names[class_id]}: {count:,} samples ({percentage:.1f}%)")
+    
+    # Train 4-class models
+    print("\nTraining 4-class classification models...")
+    multiclass_results = train_multiclass_models(X, y_multiclass, test_size=0.2, random_state=42)
+    
+    print("\n4-Class Classification Results:")
+    for model_name in ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']:
+        acc = multiclass_results[model_name]['accuracy']
+        print(f"  {model_name}: {acc:.4f}")
+
+    # CLUSTERING ANALYSIS
+    print("\n" + "="*60)
+    print("CLUSTERING ANALYSIS")
+    print("="*60)
 
     # Scale before PCA
     scaler = StandardScaler()
@@ -69,9 +126,6 @@ def run_models():
     print(f"KMeans Silhouette Score: {kmeans_score:.4f}")
     _, dbscan_labels, dbscan_score = run_dbscan(X_scaled, eps=2.0, min_samples=20)
     print(f"DBSCAN Silhouette Score: {dbscan_score if dbscan_score is not None else 'N/A'}")
-    unique_labels = np.unique(dbscan_labels)
-    # print("DBSCAN cluster labels found:", unique_labels)
-    # print("Label counts:", np.bincount(dbscan_labels + 1))  # shift -1 to 0
     
     # Reduce features to 2D for visualization
     X_vis = PCA(n_components=2).fit_transform(X_scaled)
@@ -118,22 +172,52 @@ def run_models():
     plt.tight_layout()
     plt.show()
 
+    # REGRESSION ANALYSIS
+    print("\n" + "="*60)
+    print("REGRESSION ANALYSIS")
+    print("="*60)
+
     # Regression
     X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(X, y_reg, test_size=0.2, random_state=42)
     rf_reg = train_random_forest_regressor(X_train_r, y_train_r)
     mse, mae, r2 = evaluate_regression(rf_reg, X_test_r, y_test_r)
-    print(f"Regression -> MSE: {mse:.2f}, MAE: {mae:.2f}, R2: {r2:.4f}")
+    print(f"Random Forest Regression -> MSE: {mse:.2f}, MAE: {mae:.2f}, R²: {r2:.4f}")
 
-    # Final summary
-    print("\n=== MODEL COMPARISON SUMMARY ===")
-    print(f"kNN Accuracy:               {accuracy_score(y_test, y_pred_knn):.4f}")
-    print(f"Logistic Regression:        {acc:.4f}")
-    print(f"Random Forest:              {rf_acc:.4f}")
-    print(f"Gradient Boosting:          {gb_acc:.4f}")
-    print(f"Deep Learning:              {dl_score[1]:.4f}")
-    print(f"KMeans Silhouette Score:    {kmeans_score:.4f}")
-    print(f"DBSCAN Silhouette Score:    {dbscan_score if dbscan_score is not None else 'N/A'}")
-    print(f"Regression R² Score:        {r2:.4f}")
+    # FINAL SUMMARY
+    print("\n" + "="*80)
+    print("COMPREHENSIVE MODEL COMPARISON SUMMARY")
+    print("="*80)
+    
+    print("\nBINARY CLASSIFICATION (high_fare vs regular):")
+    print(f"  kNN:                    {knn_acc:.4f}")
+    print(f"  Logistic Regression:    {lr_acc:.4f}")
+    print(f"  Random Forest:          {rf_acc:.4f}")
+    print(f"  Gradient Boosting:      {gb_acc:.4f}")
+    if dl_acc is not None:
+        print(f"  Deep Learning:          {dl_acc:.4f}")
+    
+    print("\n4-CLASS FARE CLASSIFICATION:")
+    for model_name in ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']:
+        acc = multiclass_results[model_name]['accuracy']
+        print(f"  {model_name}:           {acc:.4f}")
+    
+    print(f"\nCLUSTERING:")
+    print(f"  KMeans Silhouette:      {kmeans_score:.4f}")
+    print(f"  DBSCAN Silhouette:      {dbscan_score if dbscan_score is not None else 'N/A'}")
+    
+    print(f"\nREGRESSION:")
+    print(f"  Random Forest R²:       {r2:.4f}")
+    
+    print("\n" + "="*80)
+    print("ANALYSIS COMPLETE!")
+    print("="*80)
+    print("✅ Binary classification implemented")
+    print("✅ 4-class fare classification implemented")
+    print("✅ Regression analysis completed")
+    print("✅ Clustering analysis completed")
+    print("\nFor detailed 4-class analysis, run: python run_multiclass_classification.py")
+    print("For comprehensive Phase 5 evaluation, run: python run_phase5_evaluation.py")
+    print("="*80)
     
 if __name__ == "__main__":
     run_models()
