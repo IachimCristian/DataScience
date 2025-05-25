@@ -18,6 +18,7 @@ from src.supervised_models import train_logistic_regression
 from src.ensemble_models import train_random_forest, train_gradient_boosting
 from src.clustering import run_kmeans, run_dbscan
 from src.regression import train_random_forest_regressor, evaluate_regression
+from src.cross_validation import perform_2fold_cv, compare_models_2fold_cv
 
 # Check if TensorFlow is available
 tensorflow_available = importlib.util.find_spec("tensorflow") is not None
@@ -301,7 +302,27 @@ app.layout = dbc.Container([
                                             html.Div(id='regression-metrics-container', className='metrics-container')
                                         ], width=12)
                                     ])
-                                ], label="REGRESSION")
+                                ], label="REGRESSION"),
+                                
+                                dbc.Tab([
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.Div([
+                                                html.H5("2-Fold Cross Validation", className="mb-3"),
+                                                html.P("Compare models using 2-fold cross validation for more robust evaluation."),
+                                                html.Button('RUN 2-FOLD CV', id='run-cv-button', className='btn btn-primary mb-3'),
+                                                dcc.Loading(
+                                                    id="loading-cv",
+                                                    type="circle",
+                                                    children=[
+                                                        dcc.Graph(id='cv-comparison-graph', className='dash-graph'),
+                                                        html.Div(id='cv-results-table', className='mt-3')
+                                                    ]
+                                                )
+                                            ])
+                                        ], width=12)
+                                    ])
+                                ], label="CROSS VALIDATION")
                             ])
                         ], width=12)
                     ])
@@ -344,7 +365,8 @@ app.layout = dbc.Container([
     dcc.Store(id='knn-k-param-store', data=3),
     dcc.Store(id='rf-n-estimators-store', data=100),
     dcc.Store(id='gb-learning-rate-store', data=0.1),
-    dcc.Store(id='dl-epochs-store', data=10)
+    dcc.Store(id='dl-epochs-store', data=10),
+    dcc.Store(id='cv-results-store', data=None)
 ], fluid=True, className='dash-container')
 
 # Define the callbacks
@@ -460,6 +482,91 @@ def set_features_dropdown_options(_):
     except:
         # Return empty options if data loading fails
         return [], [], None, None
+
+# Add new callback for 2-fold cross validation
+@app.callback(
+    [Output('cv-comparison-graph', 'figure'),
+     Output('cv-results-table', 'children'),
+     Output('cv-results-store', 'data')],
+    Input('run-cv-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def run_cross_validation(n_clicks):
+    if n_clicks is None:
+        return go.Figure(), html.Div(), None
+    
+    try:
+        # Load data
+        X, y_class, _, _, _ = get_features_and_targets()
+        
+        # Use a subset for faster execution in the dashboard
+        subset_size = min(5000, X.shape[0])
+        indices = np.random.choice(X.shape[0], subset_size, replace=False)
+        X_subset = X[indices]
+        y_subset = y_class[indices]
+        
+        # Run cross validation
+        results_df, results_list = compare_models_2fold_cv(X_subset, y_subset, task="classification")
+        
+        # Create comparison graph
+        model_names = [r['model_name'] for r in results_list]
+        mean_scores = [r['mean_score'] for r in results_list]
+        std_scores = [r['std_score'] for r in results_list]
+        
+        fig = go.Figure()
+        
+        # Add bars with error bars
+        fig.add_trace(go.Bar(
+            x=model_names,
+            y=mean_scores,
+            error_y=dict(
+                type='data',
+                array=std_scores,
+                visible=True
+            ),
+            marker_color=colors['primary'],
+            text=[f'{score:.3f}' for score in mean_scores],
+            textposition='outside'
+        ))
+        
+        fig.update_layout(
+            title='2-Fold Cross Validation Results',
+            xaxis_title='Model',
+            yaxis_title='Mean Accuracy',
+            yaxis=dict(range=[0, 1.1], gridcolor=colors['grid']),
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']},
+            margin=dict(l=40, r=40, t=40, b=40),
+            showlegend=False
+        )
+        
+        # Create results table
+        table = dbc.Table.from_dataframe(
+            results_df,
+            striped=True,
+            bordered=True,
+            hover=True,
+            responsive=True,
+            className="table-dark"
+        )
+        
+        results_container = html.Div([
+            html.H5("Cross Validation Results", className="mb-3"),
+            html.P(f"Using {subset_size} samples for faster execution"),
+            table
+        ])
+        
+        return fig, results_container, results_list
+        
+    except Exception as e:
+        error_fig = go.Figure()
+        error_fig.update_layout(
+            plot_bgcolor=colors['background'],
+            paper_bgcolor=colors['background'],
+            font={'color': colors['text']}
+        )
+        return error_fig, html.Div(f"Error running cross validation: {str(e)}"), None
 
 @app.callback(
     [Output('model-performance-graph', 'figure'),

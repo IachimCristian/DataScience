@@ -15,7 +15,7 @@ from src.clustering import run_kmeans, run_dbscan
 from src.regression import train_random_forest_regressor, evaluate_regression
 
 def load_data():
-    df = pd.read_csv("nyc_taxi_final.csv")
+    df = pd.read_csv("data/nyc_taxi_final.csv")
 
     feature_cols = ['trip_distance', 'fare_amount', 'total_amount', 'tolls_amount',
         'pickup_hour', 'pickup_day', 'pickup_weekday', 'pickup_month',
@@ -76,23 +76,45 @@ def run_models():
     # Reduce features to 2D for visualization
     X_vis = PCA(n_components=2).fit_transform(X_scaled)
 
-    # Plot KMeans clusters
-    plt.figure(figsize=(6, 5))
-    plt.scatter(X_vis[:, 0], X_vis[:, 1], c=kmeans_labels, cmap='viridis', s=10)
+    # Plot KMeans clusters with legend
+    plt.figure(figsize=(8, 6))
+    unique_kmeans_labels = np.unique(kmeans_labels)
+    colors = plt.cm.viridis(np.linspace(0, 1, len(unique_kmeans_labels)))
+    
+    for i, label in enumerate(unique_kmeans_labels):
+        mask = kmeans_labels == label
+        plt.scatter(X_vis[mask, 0], X_vis[mask, 1], 
+                   c=[colors[i]], s=10, label=f'Cluster {label}', alpha=0.7)
+    
     plt.title("KMeans Clustering")
     plt.xlabel("PCA Component 1")
     plt.ylabel("PCA Component 2")
-    plt.grid(True)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
 
-    # Plot DBSCAN clusters
-    plt.figure(figsize=(6, 5))
-    plt.scatter(X_vis[:, 0], X_vis[:, 1], c=dbscan_labels, cmap='tab10', s=10)
+    # Plot DBSCAN clusters with legend
+    plt.figure(figsize=(8, 6))
+    unique_dbscan_labels = np.unique(dbscan_labels)
+    # Use tab10 colormap for better distinction
+    colors = plt.cm.tab10(np.linspace(0, 1, len(unique_dbscan_labels)))
+    
+    for i, label in enumerate(unique_dbscan_labels):
+        mask = dbscan_labels == label
+        if label == -1:
+            # Noise points
+            plt.scatter(X_vis[mask, 0], X_vis[mask, 1], 
+                       c='black', s=10, label='Noise', alpha=0.5, marker='x')
+        else:
+            plt.scatter(X_vis[mask, 0], X_vis[mask, 1], 
+                       c=[colors[i]], s=10, label=f'Cluster {label}', alpha=0.7)
+    
     plt.title("DBSCAN Clustering")
     plt.xlabel("PCA Component 1")
     plt.ylabel("PCA Component 2")
-    plt.grid(True)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
 
