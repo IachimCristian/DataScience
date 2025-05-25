@@ -1,7 +1,7 @@
 ================================================================================
 NYC TAXI 4-CLASS FARE CLASSIFICATION - ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated on: 2025-05-25 22:26:55
+Generated on: 2025-05-25 23:28:24
 
 DATA OVERVIEW
 ----------------------------------------
@@ -11,7 +11,7 @@ Mean fare: $-0.20
 Median fare: $-0.32
 Standard deviation: $0.57
 
-CLASS DISTRIBUTION
+FARE RANGE DISTRIBUTION
 ----------------------------------------
 Class 0: Short trips, low fare (< $10): 2,626 samples (28.6%)
 Class 1: Medium-distance trips, moderate fare ($10-$30): 2,259 samples (24.6%)
@@ -46,7 +46,7 @@ Class 1: Medium-distance trips, moderate fare ($10-$30)       0.99      0.99    
 KEY INSIGHTS
 ----------------------------------------
 1. FARE DISTRIBUTION:
-   • Most common fare category: Class 0: Short trips, low fare (< $10) (28.6%)
+   • Most common fare range: Class 0: Short trips, low fare (< $10) (28.6%)
    • Average fare amount: $-0.20
    • Fare variability (std): $0.57
 
@@ -57,8 +57,8 @@ KEY INSIGHTS
    • Performance range: 0.0816
 
 3. CLASSIFICATION CHALLENGES:
-   • Multi-class classification is more challenging than binary
-   • Class imbalance may affect model performance
+   • Multi-range classification is more challenging than binary
+   • Fare range imbalance may affect model performance
    • Feature engineering could improve results
    • Ensemble methods generally perform better
 

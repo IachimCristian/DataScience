@@ -2,10 +2,10 @@
 NYC Taxi 4-Class Fare Classification Analysis
 
 This script implements the complete 4-class fare classification system as specified:
-- Class 0: Short trips, low fare (< $10)
-- Class 1: Medium-distance trips, moderate fare ($10 - $30)
-- Class 2: Long-distance trips, high fare ($30 - $60)
-- Class 3: Premium fares (> $60)
+- Short trips, low fare (< $10)
+- Medium-distance trips, moderate fare ($10 - $30)
+- Long-distance trips, high fare ($30 - $60)
+- Premium fares (> $60)
 
 Run this script to perform comprehensive analysis including:
 - Data distribution analysis
@@ -49,10 +49,10 @@ def main():
     print("NYC TAXI 4-CLASS FARE CLASSIFICATION ANALYSIS")
     print("="*80)
     print("Implementing classification into 4 fare ranges:")
-    print("• Class 0: Short trips, low fare (< $10)")
-    print("• Class 1: Medium-distance trips, moderate fare ($10 - $30)")
-    print("• Class 2: Long-distance trips, high fare ($30 - $60)")
-    print("• Class 3: Premium fares (> $60)")
+    print("• Short trips, low fare (< $10)")
+    print("• Medium-distance trips, moderate fare ($10 - $30)")
+    print("• Long-distance trips, high fare ($30 - $60)")
+    print("• Premium fares (> $60)")
     print("="*80)
     
     # Create output directories
@@ -74,7 +74,7 @@ def main():
         class_names = get_class_names()
         
         print("✅ 4-class labels created successfully!")
-        print("   Class distribution:")
+        print("   Fare range distribution:")
         unique, counts = np.unique(y_multiclass, return_counts=True)
         for class_id, count in zip(unique, counts):
             percentage = (count / len(y_multiclass)) * 100
@@ -150,13 +150,13 @@ def main():
         # Show key results
         print(f"\n📊 KEY RESULTS:")
         print(f"   • Total samples analyzed: {len(y_multiclass):,}")
-        print(f"   • Number of classes: 4")
+        print(f"   • Number of fare ranges: 4")
         print(f"   • Best model accuracy: {results[best_model]['accuracy']*100:.2f}%")
         
         # Show class distribution summary
         dominant_class = np.argmax(counts)
         dominant_percentage = (counts[dominant_class] / len(y_multiclass)) * 100
-        print(f"   • Most common class: {class_names[dominant_class]} ({dominant_percentage:.1f}%)")
+        print(f"   • Most common fare range: {class_names[dominant_class]} ({dominant_percentage:.1f}%)")
         
         return results, comparison_df
         
@@ -199,7 +199,7 @@ def create_summary_report(stats, comparison_df, results):
         f.write(f"Standard deviation: ${stats['fare_stats']['std']:.2f}\n\n")
         
         # Class Distribution
-        f.write("CLASS DISTRIBUTION\n")
+        f.write("FARE RANGE DISTRIBUTION\n")
         f.write("-" * 40 + "\n")
         class_names = get_class_names()
         for i, (count, percentage, name) in enumerate(zip(stats['class_counts'], 
@@ -234,7 +234,7 @@ def create_summary_report(stats, comparison_df, results):
         dominant_class_name = class_names[dominant_class_idx]
         dominant_percentage = stats['class_percentages'][dominant_class_idx]
         
-        f.write(f"   • Most common fare category: {dominant_class_name} ({dominant_percentage:.1f}%)\n")
+        f.write(f"   • Most common fare range: {dominant_class_name} ({dominant_percentage:.1f}%)\n")
         f.write(f"   • Average fare amount: ${stats['fare_stats']['mean']:.2f}\n")
         f.write(f"   • Fare variability (std): ${stats['fare_stats']['std']:.2f}\n\n")
         
@@ -246,8 +246,8 @@ def create_summary_report(stats, comparison_df, results):
         f.write(f"   • Performance range: {max(accuracies) - min(accuracies):.4f}\n\n")
         
         f.write("3. CLASSIFICATION CHALLENGES:\n")
-        f.write("   • Multi-class classification is more challenging than binary\n")
-        f.write("   • Class imbalance may affect model performance\n")
+        f.write("   • Multi-range classification is more challenging than binary\n")
+        f.write("   • Fare range imbalance may affect model performance\n")
         f.write("   • Feature engineering could improve results\n")
         f.write("   • Ensemble methods generally perform better\n\n")
         

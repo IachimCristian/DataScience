@@ -202,7 +202,14 @@ def plot_fare_distribution(fare_amounts, save_path=None):
     non_zero_indices = class_counts > 0
     if np.any(non_zero_indices):
         pie_counts = class_counts[non_zero_indices]
-        pie_labels = [f'Class {i}' for i in range(4) if class_counts[i] > 0]
+        # Use descriptive labels instead of class numbers
+        fare_range_labels = [
+            "< $10",
+            "$10-$30", 
+            "$30-$60",
+            "> $60"
+        ]
+        pie_labels = [fare_range_labels[i] for i in range(4) if class_counts[i] > 0]
         pie_colors = [colors[i] for i in range(4) if class_counts[i] > 0]
         
         ax2.pie(pie_counts, labels=pie_labels, autopct='%1.1f%%', 
@@ -215,29 +222,31 @@ def plot_fare_distribution(fare_amounts, save_path=None):
     # 3. Box plot by class - only for classes with data
     fare_by_class = []
     box_labels = []
+    fare_range_labels = ["< $10", "$10-$30", "$30-$60", "> $60"]
+    
     for i in range(4):
         class_data = display_fares[fare_classes == i]  # Use display_fares for plotting
         if len(class_data) > 0:
             fare_by_class.append(class_data)
-            box_labels.append(f'Class {i}')
+            box_labels.append(fare_range_labels[i])
     
     if fare_by_class:  # Only create boxplot if we have data
         ax3.boxplot(fare_by_class, labels=box_labels)
-        ax3.set_xlabel('Fare Class')
+        ax3.set_xlabel('Fare Range')
         ax3.set_ylabel('Fare Amount ($)')
-        ax3.set_title(f'Fare Amount Distribution by Class{title_suffix}')
+        ax3.set_title(f'Fare Amount Distribution by Range{title_suffix}')
         ax3.grid(True, alpha=0.3)
     else:
         ax3.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ax3.transAxes)
-        ax3.set_title('Fare Amount Distribution by Class')
+        ax3.set_title('Fare Amount Distribution by Range')
     
     # 4. Class counts bar chart
     ax4.bar(range(4), class_counts, color=colors, alpha=0.7, edgecolor='black')
-    ax4.set_xlabel('Fare Class')
+    ax4.set_xlabel('Fare Range')
     ax4.set_ylabel('Number of Samples')
-    ax4.set_title('Sample Count by Fare Class')
+    ax4.set_title('Sample Count by Fare Range')
     ax4.set_xticks(range(4))
-    ax4.set_xticklabels([f'Class {i}' for i in range(4)])
+    ax4.set_xticklabels(["< $10", "$10-$30", "$30-$60", "> $60"])
     
     # Add count labels on bars
     for i, count in enumerate(class_counts):
@@ -431,7 +440,7 @@ def plot_confusion_matrices(results, save_path=None):
     """
     models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']
     y_test = results['test_data']['y_test']
-    class_names = [f'Class {i}' for i in range(4)]
+    fare_range_labels = ["< $10", "$10-$30", "$30-$60", "> $60"]
     
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     axes = axes.ravel()
@@ -442,10 +451,10 @@ def plot_confusion_matrices(results, save_path=None):
             cm = confusion_matrix(y_test, y_pred, labels=range(4))  # Ensure all 4 classes
             
             sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                       xticklabels=class_names, yticklabels=class_names, ax=axes[i])
+                       xticklabels=fare_range_labels, yticklabels=fare_range_labels, ax=axes[i])
             axes[i].set_title(f'{model_name}\nAccuracy: {results[model_name]["accuracy"]:.4f}')
-            axes[i].set_xlabel('Predicted Class')
-            axes[i].set_ylabel('True Class')
+            axes[i].set_xlabel('Predicted Fare Range')
+            axes[i].set_ylabel('True Fare Range')
         except Exception as e:
             axes[i].text(0.5, 0.5, f'Error plotting {model_name}:\n{str(e)[:50]}...', 
                         ha='center', va='center', transform=axes[i].transAxes)
