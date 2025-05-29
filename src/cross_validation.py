@@ -10,6 +10,9 @@ import pandas as pd
 from sklearn.model_selection import KFold, cross_val_score, cross_validate
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
 import time
 
 # Import your custom models
@@ -81,6 +84,21 @@ def perform_2fold_cv(X, y, model, model_name="Model", task="classification", **m
             model_instance = LogisticRegression(max_iter=1000, random_state=42)
             model_instance.fit(X_train, y_train)
             y_pred = model_instance.predict(X_test)
+        elif model_name == "Deep Learning":
+            if task == "classification":
+                from src.deep_learning import build_deep_learning_model
+                input_dim = X_train.shape[1]
+                model_instance = build_deep_learning_model(input_dim)
+                model_instance.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+                y_pred_probs = model_instance.predict(X_test).flatten()
+                y_pred = (y_pred_probs > 0.5).astype(int)
+
+            elif task == "regression":
+                from src.deep_learning import build_deep_learning_regressor
+                input_dim = X_train.shape[1]
+                model_instance = build_deep_learning_regressor(input_dim)
+                model_instance.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+                y_pred = model_instance.predict(X_test).flatten()
         else:
             # For sklearn-compatible models
             model_instance = model(**model_params)
@@ -179,8 +197,9 @@ def compare_models_2fold_cv(X, y, task="classification"):
         models = [
             ("KNN", KNNFast, {'k': 5}),
             ("Logistic Regression", None, {}),
-            ("Random Forest", train_random_forest, {'n_estimators': 100}),
-            ("Gradient Boosting", train_gradient_boosting, {'learning_rate': 0.1})
+            ("Random Forest", RandomForestClassifier, {}),
+            ("Gradient Boosting", GradientBoostingClassifier, {'learning_rate': 0.1}),
+            ("Deep Learning", None, {})
         ]
         
         print("\nComparing Classification Models with 2-Fold Cross Validation")
@@ -197,7 +216,11 @@ def compare_models_2fold_cv(X, y, task="classification"):
     else:  # regression
         # For regression tasks
         models = [
-            ("Random Forest Regressor", train_random_forest_regressor, {'n_estimators': 100})
+            ("Random Forest Regressor", RandomForestRegressor, {'n_estimators': 100}),
+            ("Gradient Boosting Regressor", GradientBoostingRegressor, {'n_estimators': 100}),
+            ("Linear Regression", LinearRegression, {}),
+            ("KNN Regressor", KNeighborsRegressor, {'n_neighbors': 5}),
+            ("Deep Learning", None, {})
         ]
         
         print("\nComparing Regression Models with 2-Fold Cross Validation")

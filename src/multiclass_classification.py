@@ -418,6 +418,37 @@ def train_multiclass_models(X, y_multiclass, test_size=0.2, random_state=42):
     
     print(f"Logistic Regression Accuracy: {lr_accuracy:.4f}")
     
+    # 5. Deep Learning Multiclass
+    print("\n" + "="*50)
+    print("Training Deep Learning Model (Multiclass)...")
+
+    from src.deep_learning import build_deep_learning_multiclass
+    from tensorflow.keras.utils import to_categorical
+
+    input_dim = X_train.shape[1]
+    model_dl = build_deep_learning_multiclass(input_dim)
+
+    model_dl.fit(X_train, y_train, epochs=15, batch_size=32, verbose=0)
+
+    y_pred_probs = model_dl.predict(X_test)
+    y_pred_dl = np.argmax(y_pred_probs, axis=1)  # choose highest probability class
+
+    dl_accuracy = accuracy_score(y_test, y_pred_dl)
+
+    results['Deep Learning'] = {
+        'model': model_dl,
+        'predictions': y_pred_dl,
+        'accuracy': dl_accuracy,
+        'classification_report': classification_report(
+            y_test, y_pred_dl,
+            target_names=get_class_names(),
+            labels=[0, 1, 2, 3],
+            zero_division=0
+        )
+    }
+    print(f"Deep Learning Accuracy: {dl_accuracy:.4f}")
+
+    
     # Store test data for evaluation
     results['test_data'] = {
         'X_test': X_test,
@@ -438,11 +469,15 @@ def plot_confusion_matrices(results, save_path=None):
     save_path : str, optional
         Path to save the plot
     """
-    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']
+    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression', 'Deep Learning']
     y_test = results['test_data']['y_test']
     fare_range_labels = ["< $10", "$10-$30", "$30-$60", "> $60"]
     
-    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    n_models = len(models)
+    cols = 3
+    rows = (n_models + cols - 1) // cols
+    
+    fig, axes = plt.subplots(rows, cols, figsize=(15, 12))
     axes = axes.ravel()
     
     for i, model_name in enumerate(models):
@@ -459,6 +494,9 @@ def plot_confusion_matrices(results, save_path=None):
             axes[i].text(0.5, 0.5, f'Error plotting {model_name}:\n{str(e)[:50]}...', 
                         ha='center', va='center', transform=axes[i].transAxes)
             axes[i].set_title(f'{model_name} - Error')
+    
+    for j in range(len(models), len(axes)):
+        fig.delaxes(axes[j])
     
     plt.tight_layout()
     
@@ -485,7 +523,7 @@ def compare_model_performance(results):
     --------
     pd.DataFrame : Comparison table
     """
-    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']
+    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression', 'Deep Learning']
     
     comparison_data = []
     for model_name in models:
@@ -520,7 +558,7 @@ def print_detailed_classification_reports(results):
     results : dict
         Results from train_multiclass_models
     """
-    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression']
+    models = ['KNN', 'Random Forest', 'Gradient Boosting', 'Logistic Regression', 'Deep Learning']
     
     for model_name in models:
         print(f"\n{'='*60}")

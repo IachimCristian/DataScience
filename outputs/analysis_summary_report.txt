@@ -1,7 +1,7 @@
 ================================================================================
 NYC TAXI 4-CLASS FARE CLASSIFICATION - ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated on: 2025-05-25 23:28:24
+Generated on: 2025-05-29 11:43:12
 
 DATA OVERVIEW
 ----------------------------------------
@@ -25,6 +25,7 @@ MODEL PERFORMANCE SUMMARY
       Random Forest   0.9864       98.64%
   Gradient Boosting   0.9918       99.18%
 Logistic Regression   0.9597       95.97%
+      Deep Learning   0.9374       93.74%
 
 BEST PERFORMING MODEL: Gradient Boosting
 ----------------------------------------
