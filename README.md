@@ -1,7 +1,7 @@
 # NYC Taxi Data Analytics Project
 
 **Authors:** Iachim Cristian & Serbicean Alexandru  
-**Date:** May 2026
+**Date:** May 2025
 **Status:** Production Ready  
 
 ## Project Overview
@@ -14,7 +14,6 @@ This project implements a comprehensive machine learning system for NYC taxi far
 - **4-Class Classification:** Fare range segmentation (99.60% accuracy)
 - **Regression Analysis:** Exact fare amount prediction (99.51% R² score)
 - **Clustering Analysis:** Customer segmentation insights
-- **REST API:** Production-ready endpoints for all prediction tasks
 
 ## Performance Metrics
 
@@ -45,16 +44,6 @@ python run_phase5_evaluation.py
 
 # Cross-validation analysis
 python run_cross_validation.py
-```
-
-### API Service
-
-Start the REST API server:
-
-```bash
-python api_service.py
-```
-pip install -r requirements.txt
 ```
 
 **Note for Windows users:** If you encounter DLL load errors with TensorFlow, you may need to:
